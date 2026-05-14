@@ -1,56 +1,68 @@
-# ── 0. Libraries ──────────────────────────────────────────────────────────────
-library(tidyverse)   # data wrangling + ggplot2
-library(zoo)         # yearmon class — clean monthly ts handling
-library(tseries)     # later: adf.test, jarque.bera.test
-library(forecast)    # Acf(), Pacf(), auto.arima() — nicer than base R acf()
+# 0. Libraries ----
+library(tidyverse)
+library(zoo)
+library(tseries)
+library(forecast)
 
-# ── 1. Load ───────────────────────────────────────────────────────────────────
+# 1. Load ----
 raw <- read_csv("PCEPI.csv") |>
   rename(date = observation_date, Y = PCEPI) |>
   mutate(date = as.Date(date))
 
-# Quick sanity check
-glimpse(raw)          # should be 806 rows, 2 cols
-range(raw$date)       # 1959-01-01 to 2026-02-01
+glimpse(raw)        # 806 rows, 2 cols
+range(raw$date)     # 1959-01-01 to 2026-02-01
 
-# ── 2. Build time series objects ──────────────────────────────────────────────
-# ts() needs a start and frequency — monthly = 12
+# 2. Time series object ----
 Y <- ts(raw$Y,
         start     = c(1959, 1),
         frequency = 12)
 
-# ── 3. Transformation: log-differences × 100 ──────────────────────────────────
-# Why log? Stabilises variance + gives % interpretation
-# Why ×100? Converts log-ratio to approximate % change (monthly inflation)
-# diff(log(Y)) drops the first obs → n = 805
+# 3. Transformations ----
 
-y_logdiff <- diff(log(Y)) * 100
-y_pctdiff <- (diff(Y) / stats::lag(Y, -1)) * 100
-
-# ── 4. Attach dates to a tidy dataframe (useful for ggplot later) ─────────────
+## 3a. Tidy dataframe with log-diff and pct-diff
 df <- tibble(
   date = raw$date,
   Y    = as.numeric(Y)
 ) |>
   mutate(
-    y_logdiff = (log(Y) - log(lag(Y))) * 100,   # log-difference × 100
-    y_pctdiff = (Y / lag(Y) - 1) * 100          # simple % change
+    y_logdiff = (log(Y) - log(lag(Y))) * 100,  # log-difference × 100
+    y_pctdiff = (Y / lag(Y) - 1) * 100         # simple % change
   )
 
-# ── 5. Quick plots ────────────────────────────────────────────────────────────
-df |>
-  select(date, y_logdiff, y_pctdiff) |>
-  drop_na() |>
-  pivot_longer(-date) |>
-  ggplot(aes(x = date, y = value, colour = name)) +
-  geom_line(alpha = 0.8) +
-  labs(title = "Log-diff vs % diff",
-       y = "% change", x = "") +
-  theme_minimal()
+## 3b. ts versions for time series functions
+y_logdiff <- diff(log(Y)) * 100
+y_pctdiff <- (diff(Y) / stats::lag(Y, -1)) * 100
 
+# 4. De-trending ----
+
+## 4a. Deterministic: OLS on time index
+t <- 1:length(Y)
+trend_model    <- lm(Y ~ t)
+Y_det_detrend  <- ts(residuals(trend_model),
+                     start     = c(1959, 1),
+                     frequency = 12)
+
+## 4b. Stochastic: first difference (already in y_logdiff)
+# y_logdiff IS the stochastic de-trending of log(Y)
+
+# 5. Plots ----
+
+## 5a. Level + transformations
 par(mfrow = c(3, 1))
-plot(Y,            main = "Level (Y)",              ylab = "Index")
-plot(ts(df$y_logdiff[-1], start = c(1959,2), frequency = 12),
-     main = "Log-diff × 100 (y)",     ylab = "% change")
-plot(ts(df$y_pctdiff[-1], start = c(1959,2), frequency = 12),
-     main = "Pct-diff (y_pct)",        ylab = "% change")
+plot(Y,
+     main = "Level (Y)", ylab = "Index")
+plot(ts(df$y_logdiff[-1], start = c(1959, 2), frequency = 12),
+     main = "Log-diff × 100", ylab = "% change")
+plot(ts(df$y_pctdiff[-1], start = c(1959, 2), frequency = 12),
+     main = "Pct-diff", ylab = "% change")
+
+## 5b. De-trending comparison
+par(mfrow = c(3, 1))
+plot(Y,
+     main = "Level (Y) — raw", ylab = "Index")
+plot(Y_det_detrend,
+     main = "Deterministic de-trending (OLS residuals)", ylab = "Residual")
+abline(h = 0, col = "grey50", lty = 2)
+plot(y_logdiff,
+     main = "Stochastic de-trending (log first-difference)", ylab = "% change")
+abline(h = 0, col = "grey50", lty = 2)
