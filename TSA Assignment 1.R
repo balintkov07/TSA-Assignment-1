@@ -90,29 +90,28 @@ adf.test(log(Y))        # expect FAIL to reject H0 → unit root present → dif
 # Step 2 — test y_logdiff: did one difference fix it?
 adf.test(y_logdiff)     # expect REJECT H0 → now stationary → stop here
 
-# 8.  ACF and PACF
-## ── Compute ACF and PACF (no plot) ────────────────────────────────────────────
-acf_vals  <- acf(Y,  lag.max = 20, plot = FALSE)
-pacf_vals <- pacf(Y, lag.max = 20, plot = FALSE)
+# 8. ACF and PACF ----
 
-## ── Combine into a clean data frame ───────────────────────────────────────────
-results <- data.frame(
-  Lag  = 1:20,
-  ACF  = round(acf_vals$acf[2:21],  4),   # lag 0 (=1) is excluded
-  PACF = round(pacf_vals$acf[1:20], 4)
-)
+## 8a. Helper: compute + return clean data frame --------------------------------
+acf_table <- function(series, lag.max = 20) {
+  data.frame(
+    Lag  = 1:lag.max,
+    ACF  = round(acf(series,  lag.max = lag.max, plot = FALSE)$acf[2:(lag.max+1)], 4),
+    PACF = round(pacf(series, lag.max = lag.max, plot = FALSE)$acf[1:lag.max],     4)
+  )
+}
 
-## ── Display as a formatted table ──────────────────────────────────────────────
-## ── Compute ACF and PACF (no plot) ────────────────────────────────────────────
-acf_vals  <- acf(Y,  lag.max = 20, plot = FALSE)
-pacf_vals <- pacf(Y, lag.max = 20, plot = FALSE)
+results_Y <- acf_table(Y)
+results_y <- acf_table(y_logdiff)
 
-## ── Combine into a clean data frame ───────────────────────────────────────────
-results <- data.frame(
-  Lag  = 1:20,
-  ACF  = round(acf_vals$acf[2:21],  4),   # lag 0 (=1) is excluded
-  PACF = round(pacf_vals$acf[1:20], 4)
-)
+## 8b. Print tables -------------------------------------------------------------
+cat("── ACF / PACF: Level series Y ──\n");  print(results_Y, row.names = FALSE)
+cat("── ACF / PACF: Log-differences y ──\n"); print(results_y, row.names = FALSE)
 
-## ── Display as a formatted table ──────────────────────────────────────────────
-print(results, row.names = FALSE)
+## 8c. Plot: level vs differences side by side ----------------------------------
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+
+acf(Y,         lag.max = 20, main = "ACF — Level (Y)",          ylab = "", xlab = "Lag")
+pacf(Y,        lag.max = 20, main = "PACF — Level (Y)",         ylab = "", xlab = "Lag")
+acf(y_logdiff, lag.max = 20, main = "ACF — Log-diff y (Q4)",    ylab = "", xlab = "Lag")
+pacf(y_logdiff,lag.max = 20, main = "PACF — Log-diff y (Q4)",   ylab = "", xlab = "Lag")
