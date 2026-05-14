@@ -24,7 +24,8 @@ Y <- ts(raw$Y,
 # Why ×100? Converts log-ratio to approximate % change (monthly inflation)
 # diff(log(Y)) drops the first obs → n = 805
 
-y <- diff(log(Y)) * 100
+y_logdiff <- diff(log(Y)) * 100
+y_pctdiff <- (diff(Y) / stats::lag(Y, -1)) * 100
 
 # ── 4. Attach dates to a tidy dataframe (useful for ggplot later) ─────────────
 df <- tibble(
@@ -32,17 +33,24 @@ df <- tibble(
   Y    = as.numeric(Y)
 ) |>
   mutate(
-    y = c(NA, diff(log(Y)) * 100)   # NA for first row — no lag available
+    y_logdiff = (log(Y) - log(lag(Y))) * 100,   # log-difference × 100
+    y_pctdiff = (Y / lag(Y) - 1) * 100          # simple % change
   )
 
 # ── 5. Quick plots ────────────────────────────────────────────────────────────
-par(mfrow = c(2, 1))
+df |>
+  select(date, y_logdiff, y_pctdiff) |>
+  drop_na() |>
+  pivot_longer(-date) |>
+  ggplot(aes(x = date, y = value, colour = name)) +
+  geom_line(alpha = 0.8) +
+  labs(title = "Log-diff vs % diff",
+       y = "% change", x = "") +
+  theme_minimal()
 
-plot(Y,
-     main = "PCE Price Index — Level (Y)",
-     ylab = "Index (2017 = 100)", xlab = "")
-
-plot(y,
-     main = "Log-Differences × 100 — Monthly Inflation (y)",
-     ylab = "% change", xlab = "")
-abline(h = 0, col = "grey50", lty = 2)
+par(mfrow = c(3, 1))
+plot(Y,            main = "Level (Y)",              ylab = "Index")
+plot(ts(df$y_logdiff[-1], start = c(1959,2), frequency = 12),
+     main = "Log-diff × 100 (y)",     ylab = "% change")
+plot(ts(df$y_pctdiff[-1], start = c(1959,2), frequency = 12),
+     main = "Pct-diff (y_pct)",        ylab = "% change")
