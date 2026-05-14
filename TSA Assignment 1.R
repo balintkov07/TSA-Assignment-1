@@ -3,6 +3,7 @@ library(tidyverse)
 library(zoo)
 library(tseries)
 library(forecast)
+library(lmtest)
 
 # 1. Load ----
 raw <- read_csv("PCEPI.csv") |>
@@ -66,3 +67,24 @@ abline(h = 0, col = "grey50", lty = 2)
 plot(y_logdiff,
      main = "Stochastic de-trending (log first-difference)", ylab = "% change")
 abline(h = 0, col = "grey50", lty = 2)
+
+avg_change <- mean(y_logdiff)
+abline(h = avg_change, col = "red", lty = 2)
+
+# 6. AR(1) on log-differences ----
+
+## 6a. Estimate
+ar1 <- arima(y_logdiff, order = c(1, 0, 0))
+summary(ar1)
+
+## 6b. Extract key output
+coeftest(ar1)          # t-stats and p-values — needs library(lmtest)
+ar1$coef               # phi_1 and intercept
+ar1$sigma2             # residual variance
+
+## 6c. Test 2 transformations
+# Step 1 — test log(Y): does the log-level need differencing?
+adf.test(log(Y))        # expect FAIL to reject H0 → unit root present → difference
+
+# Step 2 — test y_logdiff: did one difference fix it?
+adf.test(y_logdiff)     # expect REJECT H0 → now stationary → stop here
