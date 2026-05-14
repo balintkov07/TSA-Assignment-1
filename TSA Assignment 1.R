@@ -4,6 +4,7 @@ library(zoo)
 library(tseries)
 library(forecast)
 library(lmtest)
+library(ggplot2)
 
 # 1. Load ----
 raw <- read_csv("PCEPI.csv") |>
@@ -88,3 +89,30 @@ adf.test(log(Y))        # expect FAIL to reject H0 → unit root present → dif
 
 # Step 2 — test y_logdiff: did one difference fix it?
 adf.test(y_logdiff)     # expect REJECT H0 → now stationary → stop here
+
+# 8.  ACF and PACF
+## ── Compute ACF and PACF (no plot) ────────────────────────────────────────────
+acf_vals  <- acf(Y,  lag.max = 20, plot = FALSE)
+pacf_vals <- pacf(Y, lag.max = 20, plot = FALSE)
+
+## ── Combine into a clean data frame ───────────────────────────────────────────
+results <- data.frame(
+  Lag  = 1:20,
+  ACF  = round(acf_vals$acf[2:21],  4),   # lag 0 (=1) is excluded
+  PACF = round(pacf_vals$acf[1:20], 4)
+)
+
+## ── Display as a formatted table ──────────────────────────────────────────────
+## ── Compute ACF and PACF (no plot) ────────────────────────────────────────────
+acf_vals  <- acf(Y,  lag.max = 20, plot = FALSE)
+pacf_vals <- pacf(Y, lag.max = 20, plot = FALSE)
+
+## ── Combine into a clean data frame ───────────────────────────────────────────
+results <- data.frame(
+  Lag  = 1:20,
+  ACF  = round(acf_vals$acf[2:21],  4),   # lag 0 (=1) is excluded
+  PACF = round(pacf_vals$acf[1:20], 4)
+)
+
+## ── Display as a formatted table ──────────────────────────────────────────────
+print(results, row.names = FALSE)
